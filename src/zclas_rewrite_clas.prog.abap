@@ -2,16 +2,16 @@
 *&  Include           ZCLAS_REWRITE_CLAS
 *&---------------------------------------------------------------------*
 
-CLASS lcl_clas_deser DEFINITION.
+CLASS lcl_clas_experimental DEFINITION FINAL.
 
   PUBLIC SECTION.
     METHODS:
       constructor
         IMPORTING
-          is_class TYPE vseoclass,
+          is_class    TYPE vseoclass
+          iv_devclass TYPE devclass,
       run
         IMPORTING
-          iv_devclass    TYPE devclass
           iv_source      TYPE string
           iv_locals_def  TYPE string OPTIONAL
           iv_locals_imp  TYPE string OPTIONAL
@@ -21,7 +21,8 @@ CLASS lcl_clas_deser DEFINITION.
           cx_oo_clif_component.
 
   PRIVATE SECTION.
-    DATA: ms_class TYPE vseoclass.
+    DATA: ms_class    TYPE vseoclass,
+          mv_devclass TYPE devclass.
 
     METHODS:
       init_scanner
@@ -29,8 +30,14 @@ CLASS lcl_clas_deser DEFINITION.
           iv_source         TYPE string
         RETURNING
           VALUE(ro_scanner) TYPE REF TO cl_oo_source_scanner_class,
-      check,
+      update_report
+        IMPORTING
+          iv_program        TYPE programm
+          it_source         TYPE string_table
+        RETURNING
+          VALUE(rv_updated) TYPE abap_bool,
       generate_classpool,
+      update_index,
       update_meta
         IMPORTING
           iv_exposure TYPE seoexpose
@@ -42,19 +49,19 @@ CLASS lcl_clas_deser DEFINITION.
           VALUE(rv_program) TYPE programm,
       scan
         IMPORTING
-                  iv_source TYPE string
-        RAISING   cx_oo_clif_component,
-      create
-        IMPORTING
-          iv_devclass TYPE devclass.
+          iv_source TYPE string
+        RAISING
+          cx_oo_clif_component,
+      create.
 
 ENDCLASS.
 
-CLASS lcl_clas_deser IMPLEMENTATION.
+CLASS lcl_clas_experimental IMPLEMENTATION.
 
   METHOD constructor.
 
-    ms_class = is_class.
+    ms_class    = is_class.
+    mv_devclass = iv_devclass.
 
   ENDMETHOD.
 
@@ -62,7 +69,7 @@ CLASS lcl_clas_deser IMPLEMENTATION.
 
     CALL FUNCTION 'SEO_CLASS_CREATE_COMPLETE'
       EXPORTING
-        devclass        = iv_devclass
+        devclass        = mv_devclass
         version         = seoc_version_active
       CHANGING
         class           = ms_class
@@ -83,9 +90,39 @@ CLASS lcl_clas_deser IMPLEMENTATION.
 
   METHOD run.
 
-    create( iv_devclass ).
+    DATA: lv_program TYPE programm,
+          lt_source  TYPE string_table.
+
+
+    create( ).
 
     scan( iv_source ).
+
+    SPLIT iv_locals_def AT |\n| INTO TABLE lt_source.
+    lv_program = cl_oo_classname_service=>get_ccdef_name( ms_class-clsname ).
+    update_report( iv_program = lv_program
+                   it_source  = lt_source ).
+
+    SPLIT iv_locals_imp AT |\n| INTO TABLE lt_source.
+    lv_program = cl_oo_classname_service=>get_ccimp_name( ms_class-clsname ).
+    update_report( iv_program = lv_program
+                   it_source  = lt_source ).
+
+    SPLIT iv_macros AT |\n| INTO TABLE lt_source.
+    lv_program = cl_oo_classname_service=>get_ccmac_name( ms_class-clsname ).
+    update_report( iv_program = lv_program
+                   it_source  = lt_source ).
+
+    IF ms_class-with_unit_tests = abap_true.
+* todo, this one is special
+*   iv_testclasses TYPE string OPTIONAL
+    ENDIF.
+
+*    update_index( ).
+
+  ENDMETHOD.
+
+  METHOD update_index.
 
     DATA(lv_pool_include) = cl_oo_classname_service=>get_interfacepool_name( ms_class-clsname ).
     cl_where_used_list_utilities=>update_index_in_background( lv_pool_include ).
@@ -117,7 +154,7 @@ CLASS lcl_clas_deser IMPLEMENTATION.
     ENDIF.
 
     lo_update->set_dark_mode( seox_true ).
-*    lo_update->set_amdp_support( amdp_support_enabled ).
+    lo_update->set_amdp_support( abap_true ).
     lo_update->scan_section_source(
       RECEIVING
         scan_error             = lv_scan_error
@@ -190,30 +227,45 @@ CLASS lcl_clas_deser IMPLEMENTATION.
       BREAK-POINT.
     ENDIF.
 
-    cl_oo_classname_service=>get_method_include(
-      EXPORTING
-        mtdkey = ls_mtdkey
-      RECEIVING
-        result = rv_program ).
+    rv_program = cl_oo_classname_service=>get_method_include( ls_mtdkey ).
 
   ENDMETHOD.
 
   METHOD scan.
 
+    DATA: lv_updated TYPE abap_bool.
+
     DATA(lo_scanner) = init_scanner( iv_source ).
 
-
+* public
     DATA(lt_source) = lo_scanner->get_public_section_source( ).
     DATA(lv_program) = cl_oo_classname_service=>get_pubsec_name( ms_class-clsname ).
-    INSERT REPORT lv_program FROM lt_source.
-    ASSERT sy-subrc = 0.
-    update_meta(
-      iv_exposure = seoc_exposure_public
-      it_source   = lt_source ).
+    lv_updated = update_report( iv_program = lv_program
+                                it_source  = lt_source ).
+    IF lv_updated = abap_true.
+      update_meta( iv_exposure = seoc_exposure_public
+                   it_source   = lt_source ).
+    ENDIF.
 
-* todo:
-*   protected
-*   private
+* protected
+    lt_source = lo_scanner->get_protected_section_source( ).
+    lv_program = cl_oo_classname_service=>get_prosec_name( ms_class-clsname ).
+    lv_updated = update_report( iv_program = lv_program
+                                it_source  = lt_source ).
+    IF lv_updated = abap_true.
+      update_meta( iv_exposure = seoc_exposure_protected
+                   it_source   = lt_source ).
+    ENDIF.
+
+* private
+    lt_source = lo_scanner->get_private_section_source( ).
+    lv_program = cl_oo_classname_service=>get_prisec_name( ms_class-clsname ).
+    lv_updated = update_report( iv_program = lv_program
+                                it_source  = lt_source ).
+    IF lv_updated = abap_true.
+      update_meta( iv_exposure = seoc_exposure_private
+                   it_source   = lt_source ).
+    ENDIF.
 
 * methods
     DATA(lt_methods) = lo_scanner->get_method_implementations( ).
@@ -222,14 +274,27 @@ CLASS lcl_clas_deser IMPLEMENTATION.
       lt_source = lo_scanner->get_method_impl_source( lv_method ).
       lv_program = determine_method_include( lv_method ).
 
-      INSERT REPORT lv_program FROM lt_source.
-      ASSERT sy-subrc = 0.
+      update_report(
+        iv_program = lv_program
+        it_source  = lt_source ).
     ENDLOOP.
 
   ENDMETHOD.
 
-  METHOD check.
-* todo
+  METHOD update_report.
+
+    DATA: lt_old TYPE string_table.
+
+    READ REPORT iv_program INTO lt_old.
+    ASSERT sy-subrc = 0. " include should have been created previously
+    IF lt_old <> it_source.
+      INSERT REPORT iv_program FROM it_source.
+      ASSERT sy-subrc = 0.
+      rv_updated = abap_true.
+    ELSE.
+      rv_updated = abap_false.
+    ENDIF.
+
   ENDMETHOD.
 
   METHOD generate_classpool.
