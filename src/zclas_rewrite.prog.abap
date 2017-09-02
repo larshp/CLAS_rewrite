@@ -12,7 +12,7 @@ INCLUDE zclas_rewrite_tests.
 START-OF-SELECTION.
   PERFORM run.
 
-FORM run.
+FORM run RAISING cx_oo_clif_component.
 
   DATA: ls_vseoclass TYPE vseoclass,
         lv_source    TYPE string.
@@ -37,6 +37,7 @@ FORM run.
   lv_source = |{ lv_source }ENDCLASS.\n|.
   lv_source = |{ lv_source }CLASS zcl_foobaa IMPLEMENTATION.\n|.
   lv_source = |{ lv_source }  METHOD foo.\n|.
+  lv_source = |{ lv_source }    WRITE 'foobar'.\n|.
   lv_source = |{ lv_source }  ENDMETHOD.\n|.
   lv_source = |{ lv_source }ENDCLASS.\n|.
 
