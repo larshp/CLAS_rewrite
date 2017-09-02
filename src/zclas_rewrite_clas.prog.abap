@@ -30,6 +30,11 @@ CLASS lcl_clas_deser DEFINITION.
         RETURNING
           VALUE(ro_scanner) TYPE REF TO cl_oo_source_scanner_class,
       check,
+      generate_classpool,
+      update_meta
+        IMPORTING
+          iv_exposure TYPE seoexpose
+          it_source   TYPE rswsourcet,
       determine_method_include
         IMPORTING
           iv_method         TYPE seocpdname
@@ -84,6 +89,51 @@ CLASS lcl_clas_deser IMPLEMENTATION.
 
     DATA(lv_pool_include) = cl_oo_classname_service=>get_interfacepool_name( ms_class-clsname ).
     cl_where_used_list_utilities=>update_index_in_background( lv_pool_include ).
+
+  ENDMETHOD.
+
+  METHOD update_meta.
+
+    DATA: lo_update     TYPE REF TO cl_oo_class_section_source,
+          ls_clskey     TYPE seoclskey,
+          lv_scan_error TYPE seox_boolean.
+
+
+    ls_clskey-clsname = ms_class-clsname.
+
+    CREATE OBJECT lo_update
+      EXPORTING
+        clskey                        = ls_clskey
+        exposure                      = iv_exposure
+        state                         = 'A'
+        source                        = it_source
+        suppress_constrctr_generation = seox_true
+      EXCEPTIONS
+        class_not_existing            = 1
+        read_source_error             = 2
+        OTHERS                        = 3.
+    IF sy-subrc <> 0.
+      BREAK-POINT.
+    ENDIF.
+
+    lo_update->set_dark_mode( seox_true ).
+*    lo_update->set_amdp_support( amdp_support_enabled ).
+    lo_update->scan_section_source(
+      RECEIVING
+        scan_error             = lv_scan_error
+      EXCEPTIONS
+        scan_abap_source_error = 1
+        OTHERS                 = 2 ).
+    IF sy-subrc <> 0 OR lv_scan_error = abap_true.
+      BREAK-POINT.
+    ENDIF.
+
+* this will update the SEO* database tables
+    lo_update->revert_scan_result( ).
+
+    IF iv_exposure = seoc_exposure_public.
+      generate_classpool( ).
+    ENDIF.
 
   ENDMETHOD.
 
@@ -155,12 +205,18 @@ CLASS lcl_clas_deser IMPLEMENTATION.
 
     DATA(lt_source) = lo_scanner->get_public_section_source( ).
     DATA(lv_program) = cl_oo_classname_service=>get_pubsec_name( ms_class-clsname ).
-
     INSERT REPORT lv_program FROM lt_source.
     ASSERT sy-subrc = 0.
+    update_meta(
+      iv_exposure = seoc_exposure_public
+      it_source   = lt_source ).
 
+* todo:
+*   protected
+*   private
+
+* methods
     DATA(lt_methods) = lo_scanner->get_method_implementations( ).
-    BREAK-POINT.
 
     LOOP AT lt_methods INTO DATA(lv_method).
       lt_source = lo_scanner->get_method_impl_source( lv_method ).
@@ -170,15 +226,47 @@ CLASS lcl_clas_deser IMPLEMENTATION.
       ASSERT sy-subrc = 0.
     ENDLOOP.
 
-* todo:
-*   protected
-*   private
-*  methods
-
   ENDMETHOD.
 
   METHOD check.
 * todo
+  ENDMETHOD.
+
+  METHOD generate_classpool.
+
+    DATA: ls_clskey TYPE seoclskey.
+
+    ls_clskey-clsname = ms_class-clsname.
+
+    CALL FUNCTION 'SEO_CLASS_GENERATE_CLASSPOOL'
+      EXPORTING
+        clskey                        = ls_clskey
+        suppress_corr                 = seox_true
+      EXCEPTIONS
+        not_existing                  = 1
+        model_only                    = 2
+        class_pool_not_generated      = 3
+        class_stment_not_generated    = 4
+        locals_not_generated          = 5
+        macros_not_generated          = 6
+        public_sec_not_generated      = 7
+        protected_sec_not_generated   = 8
+        private_sec_not_generated     = 9
+        typeref_not_generated         = 10
+        class_pool_not_initialised    = 11
+        class_stment_not_initialised  = 12
+        locals_not_initialised        = 13
+        macros_not_initialised        = 14
+        public_sec_not_initialised    = 15
+        protected_sec_not_initialised = 16
+        private_sec_not_initialised   = 17
+        typeref_not_initialised       = 18
+        _internal_class_overflow      = 19
+        OTHERS                        = 20.
+    IF sy-subrc <> 0.
+      BREAK-POINT.
+    ENDIF.
+
   ENDMETHOD.
 
 ENDCLASS.
