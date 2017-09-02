@@ -10,14 +10,14 @@ INCLUDE zclas_rewrite_clas.
 INCLUDE zclas_rewrite_tests.
 
 START-OF-SELECTION.
-  PERFORM run USING 1.
-*  PERFORM performance.
+*  PERFORM run USING 1.
+  PERFORM performance.
 * todo, syntax check?
   PERFORM update_package_tree.
 
 FORM performance.
 
-  CONSTANTS: lc_count TYPE i VALUE 10.
+  CONSTANTS: lc_count TYPE i VALUE 200.
 
   DO lc_count TIMES.
     cl_progress_indicator=>progress_indicate(
