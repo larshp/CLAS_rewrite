@@ -269,11 +269,11 @@ CLASS lcl_clas_experimental IMPLEMENTATION.
 
 * this is a hack, INSERT REPORT typically waits 1 second, if the class was
 * created at the same time
-    DATA(pool) = cl_oo_classname_service=>get_classpool_name( ms_class-clsname ).
-    EXEC SQL.
-      UPDATE REPOSRC SET STIME = '000000' WHERE PROGNAME = :pool AND R3STATE = 'A'
-    ENDEXEC.
-    WRITE: / sy-subrc.
+*    DATA(pool) = cl_oo_classname_service=>get_classpool_name( ms_class-clsname ).
+*    EXEC SQL.
+*      UPDATE REPOSRC SET STIME = '000000' WHERE PROGNAME = :pool AND R3STATE = 'A'
+*    ENDEXEC.
+*    WRITE: / sy-subrc.
 
 * methods
     DATA(lt_methods) = lo_scanner->get_method_implementations( ).
@@ -283,10 +283,10 @@ CLASS lcl_clas_experimental IMPLEMENTATION.
       lv_program = determine_method_include( lv_method ).
 
 * hack
-      EXEC SQL.
-        UPDATE REPOSRC SET STIME = '000000' WHERE PROGNAME = :pool AND R3STATE = 'A'
-      ENDEXEC.
-      WRITE: / sy-subrc.
+*      EXEC SQL.
+*        UPDATE REPOSRC SET STIME = '000000' WHERE PROGNAME = :pool AND R3STATE = 'A'
+*      ENDEXEC.
+*      WRITE: / sy-subrc.
 
       update_report(
         iv_program = lv_program

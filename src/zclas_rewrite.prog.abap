@@ -17,7 +17,7 @@ START-OF-SELECTION.
 
 FORM performance.
 
-  CONSTANTS: lc_count TYPE i VALUE 200.
+  CONSTANTS: lc_count TYPE i VALUE 1.
 
   DO lc_count TIMES.
     cl_progress_indicator=>progress_indicate(
@@ -55,12 +55,21 @@ FORM run USING p_counter TYPE i RAISING cx_oo_clif_component.
 
   lv_source = |{ lv_source }CLASS { to_lower( lv_name ) } DEFINITION PUBLIC FINAL CREATE PUBLIC.\n|.
   lv_source = |{ lv_source }  PUBLIC SECTION.\n|.
-  lv_source = |{ lv_source }    METHODS foo.\n|.
+  lv_source = |{ lv_source }    METHODS: foo, bar, moo, baa.\n|.
   lv_source = |{ lv_source }  PROTECTED SECTION.\n|.
   lv_source = |{ lv_source }  PRIVATE SECTION.\n|.
   lv_source = |{ lv_source }ENDCLASS.\n|.
   lv_source = |{ lv_source }CLASS { to_lower( lv_name ) } IMPLEMENTATION.\n|.
   lv_source = |{ lv_source }  METHOD foo.\n|.
+  lv_source = |{ lv_source }    WRITE 'foobaaar'.\n|.
+  lv_source = |{ lv_source }  ENDMETHOD.\n|.
+  lv_source = |{ lv_source }  METHOD bar.\n|.
+  lv_source = |{ lv_source }    WRITE 'foobaaar'.\n|.
+  lv_source = |{ lv_source }  ENDMETHOD.\n|.
+  lv_source = |{ lv_source }  METHOD moo.\n|.
+  lv_source = |{ lv_source }    WRITE 'foobaaar'.\n|.
+  lv_source = |{ lv_source }  ENDMETHOD.\n|.
+  lv_source = |{ lv_source }  METHOD baa.\n|.
   lv_source = |{ lv_source }    WRITE 'foobaaar'.\n|.
   lv_source = |{ lv_source }  ENDMETHOD.\n|.
   lv_source = |{ lv_source }ENDCLASS.\n|.
